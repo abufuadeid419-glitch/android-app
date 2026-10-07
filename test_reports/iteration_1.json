@@ -1,0 +1,54 @@
+{
+  "summary": "Backend (Convex HTTP) tested: 9/9 passed + 1 OTP SMS error-path test consuming 1/5 quota. Frontend: login screen renders correctly with Arabic RTL, +963 default CC, WhatsApp UI absent as required. Session-token injection via localStorage works (AsyncStorage web backs onto window.localStorage with raw key `session_token`, JSON-encoded). Owner, Accountant, Developer dashboards all render with live Convex data. CRITICAL BUG: Field Agent (test_token_agent) is routed to /dist but no app/dist route exists -> 'Unmatched Route - Page could not be found'. Secondary: tab bar items in owner/acct/dev _layout.tsx have no testIDs (visible labels work but automated tab taps need testIDs). Minor: `expo-image` emits 'style.resizeMode is deprecated' warning.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/auth/otp/request", "issue": "For +963900000099 the SMS gateway rejects with HTTP 422 before SIM check, producing 'رقم الهاتف غير صالح أو غير مدعوم' instead of the SIM-missing message. Error is still Arabic and user-safe, but task note expected the SIM-missing branch - gateway only hits SIM-missing for numbers it considers deliverable."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "app/dist (missing)", "issue": "Field Agent dashboard route does not exist. homeFor() in src/auth.tsx:152 returns 'dist' for FIELD_AGENT employees and _layout.tsx redirects to /dist, but there is no /app/frontend/app/dist/ directory. Users see Expo Router 'Unmatched Route'.", "testID": "n/a", "priority": "CRITICAL"},
+      {"component": "owner/_layout.tsx, acct/_layout.tsx, dev/_layout.tsx", "issue": "Tabs.Screen entries have no testID on tabBarButton / tabBarIcon. Expected testIDs like owner-tab-overview, acct-tab-sales, dev-tab-licenses are not present. Dashboards render fine but programmatic tab navigation isn't testable.", "testID": "owner-tab-*, acct-tab-*, dev-tab-*, dist-tab-*", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [
+      {"flow": "Field Agent login -> dashboard", "issue": "Seeded test_token_agent authenticates (API /auth/me returns EMPLOYEE+FIELD_AGENT correctly) but the client has no destination screen, so the whole Field Agent experience is broken on all platforms (web + native).", "affected_testIDs": ["dist-tab-overview", "dist-tab-visits", "dist-tab-map"]}
+    ],
+    "design_issues": [
+      {"screen": "login", "issues": ["Looks correct: RTL layout, +963 default CC, phone input left-aligned LTR, Arabic terms text, hero image + gradient. No WhatsApp buttons."]},
+      {"screen": "owner / acct / dev dashboards", "issues": ["Welcome tour modal auto-opens on first visit (expected). Tabs render as icons+Arabic labels. Live data from Convex (TEST مؤسسة الاختبار, 1 org, 4 users) displayed correctly."]}
+    ],
+    "react_native_issues": [
+      {"component": "expo-image", "issue": "Console warning: 'Image: style.resizeMode is deprecated. Please use props.resizeMode.' Likely from a <Image style={{ resizeMode: ... }}> usage. Move resizeMode out of style to a prop."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_convex_api.py",
+    "/app/test_reports/pytest/pytest_results.xml",
+    "/app/test_reports/login_screen.png",
+    "/app/test_reports/role_owner.png",
+    "/app/test_reports/role_acct.png",
+    "/app/test_reports/role_agent.png",
+    "/app/test_reports/role_dev.png"
+  ],
+  "action_items": [
+    "CRITICAL: Create /app/frontend/app/dist/ route group with _layout.tsx + index.tsx + visits.tsx + map.tsx (or whichever screens Field Agent needs). Alternatively change homeFor() to point to an existing route. Without this, field-agent accounts cannot use the app.",
+    "Add testID props on each Tabs.Screen in app/owner/_layout.tsx, app/acct/_layout.tsx, app/dev/_layout.tsx and the new app/dist/_layout.tsx (e.g. options={{ tabBarButtonTestID: 'owner-tab-overview' }}) so automated tests can tap tabs.",
+    "Fix expo-image style.resizeMode deprecation: pass resizeMode as a prop instead of style property wherever used."
+  ],
+  "critical_code_review_comments": [
+    "src/auth.tsx homeFor() returns 'dist' for FIELD_AGENT but no such route exists -> hard dead-end. Route table and homeFor should be kept in sync, ideally via a shared const.",
+    "src/api.ts throws plain Error('حدث خطأ غير متوقع') when backend returns non-string detail; consider logging the actual response body in dev mode.",
+    "convex/edge.ts gateError maps 400/422 to 'رقم الهاتف غير صالح أو غير مدعوم'. If the gateway reports SIM-missing with HTTP 400+'No SIMs' in body, the /No SIMs/ check still runs before gateError thanks to the regex check - OK. But current prod gateway rejects any Syrian mobile prefix outside its allow-list, so SIM path is hard to exercise.",
+    "App has a 'tour' modal that auto-opens over every dashboard; make sure it has testID + close button testID so tests can dismiss it reliably."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_convex_api.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "75% (3/4 role dashboards work; field agent dashboard route missing)"},
+  "seed_data_creation": "None - used pre-seeded Convex accounts (test_token_dev/owner/acct/agent) created by edge:seedTestAccounts.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "To authenticate on web preview: await page.goto(login) then page.evaluate(\"localStorage.setItem('session_token', JSON.stringify('test_token_owner'))\") then reload. AsyncStorage web uses window.localStorage with raw key and JSON-encoded value. Convex API base: https://fearless-ostrich-878.eu-west-1.convex.site/api. Do not spam /auth/otp/request (5/hour/phone, 30s cooldown). SMS gateway device has no SIM so real OTP cannot be delivered. All 4 seeded roles authenticate on /api/auth/me; only field agent lacks a destination route.",
+  "rca_of_issue": "Field Agent 'Unmatched Route' bug: homeFor(user) in /app/frontend/src/auth.tsx line 152 returns the string 'dist' for EMPLOYEE+FIELD_AGENT users. Gate() in /app/frontend/app/_layout.tsx then calls router.replace('/dist'). Expo Router looks for /app/frontend/app/dist/{index,_layout}.tsx but the directory doesn't exist (only acct, dev, owner, and loose screens are present). Expo Router falls back to its built-in +not-found page. Reproduction: set localStorage session_token='test_token_agent' and open the app on web; the URL becomes /dist and the 'Unmatched Route - Page could not be found' screen renders. Fix: either (a) create the dist route folder with the field-agent screens that the task description lists ('agent dist screens'), or (b) point homeFor to an existing route."
+}
