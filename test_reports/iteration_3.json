@@ -1,0 +1,35 @@
+{
+  "summary": "Iteration 3 PASS for 'maps without Google API key'. Seeded test_token_agent location via POST /api/locations (correct Convex path; the task's suggested /api/tracking/location returns 404). Owner web (test_token_owner): tab-more → sub-tab 'تتبع GPS' renders iframe data-testid='agents-map' with srcdoc containing leaflet.css/js and tile sources basemaps.cartocdn.com + server.arcgisonline.com (Esri), NO maps.googleapis / maps.google.com/embed. Clicking agent-location card opens agent-map-sheet with iframe agent-live-map; map-type-m/k/h pills all present and switch tiles (streets→Esri satellite→hybrid). agent-map-mode-trail shows iframe trail-map with seeded point. 'فتح في تطبيق الخرائط' button (data-testid='agent-map-open-google') present with correct Arabic text and uses mapOpenUrl plain google.com/maps/search deep link (no API key). /agents-map screen loads and renders AgentsMap. Field agent (test_token_agent) tab-ops renders ops screen cleanly without route-map (no stops have coords — correct no-crash behaviour). ZERO network requests to maps.googleapis.com or maps.google.com/embed captured across full flow. No console errors from removed react-native-maps; grep confirms no 'react-native-maps' or 'GoogleMapEmbed' import anywhere under /app/frontend/src or /app/frontend/app. OBSERVATION (not a regression): CARTO Voyager streets tiles are served from basemaps.cartocdn.com without an API key and therefore render with a diagonal 'API KEY REQUIRED' watermark overlay — the map still works, but visually suggests a key is required. Esri satellite layer is clean (no watermark). Consider switching the streets layer to a watermark-free free-tier provider (tile.openstreetmap.org, OpenFreeMap, or Stadia Alidade with free dev key) to match the user's spirit of 'no API key'.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "AgentsMap / AgentMapSheet (streets layer)", "issues": ["CARTO Voyager anonymous tiles (basemaps.cartocdn.com) render with a diagonal 'API KEY REQUIRED' watermark across every streets map (owner tracking map and agent live map in map-type-m). Tiles still load, but the watermark is visible to end users. Reference: /app/frontend/src/maps.ts:37 (trailHtml streets layer) and /app/frontend/src/maps.ts:64 (leafletHtml streets layer)."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/owner_more.png",
+    "/app/test_reports/owner_tracking.png",
+    "/app/test_reports/agents_map_screen.png",
+    "/app/test_reports/agent_sheet_live.png",
+    "/app/test_reports/agent_sheet_trail.png",
+    "/app/test_reports/agent_ops_full.png"
+  ],
+  "action_items": [
+    "Replace the CARTO Voyager tile URL in src/maps.ts (both trailHtml and leafletHtml streets layers) with a watermark-free provider — e.g. https://tile.openstreetmap.org/{z}/{x}/{y}.png (OSM standard, respect usage policy with a proper User-Agent referrer), or OpenFreeMap (https://tiles.openfreemap.org/styles/liberty/... with MapLibre) or Stadia AlidadeSmooth with free dev key. Current CARTO anonymous tiles stamp 'API KEY REQUIRED' on the map which contradicts the 'no API key' goal visually."
+  ],
+  "critical_code_review_comments": [
+    "src/maps.ts leafletHtml inlines large HTML/JS as a template string per render; consider memoising at component level or caching by stringified markers to avoid rebuilding the srcDoc on every parent re-render (iframe reloads whenever the html string identity changes because of key={html}).",
+    "LeafletMap.web.tsx forces iframe remount on every html change via key={html}; combined with the one-minute refetch in AgentMapSheet (LIVE_MS=60000), the live map fully reloads tiles every minute, causing visible flicker. Consider imperative Leaflet updates via postMessage instead of srcDoc remount.",
+    "mapOpenUrl / mapDirectionsUrl in src/maps.ts still produce google.com/maps/search?api=1 and google.com/maps/dir?api=1 URLs — these are plain web links (no key) and only used by the external 'فتح في تطبيق الخرائط' / 'الاتجاهات' Linking.openURL buttons, so the 'no Google Maps API' goal is still satisfied; just worth noting these open Google Maps on the device as before."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only testing)", "frontend": "100% core flows (owner tracking map, agent live map, map-type pills, trail map, open-in-maps button, /agents-map screen, agent ops no-crash, zero Google Maps requests)"},
+  "seed_data_creation": "Posted 1 live location for test_token_agent (Damascus 33.5138, 36.2765) via POST https://fearless-ostrich-878.eu-west-1.convex.site/api/locations with Bearer test_token_agent → {ok:true}. GET /api/tracking/agents confirms user_test_agent now has last_location.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Correct Convex endpoint for seeding location is POST /api/locations {lat,lng,accuracy?} — NOT /api/tracking/location (returns 404). AgentsMap only renders in owner tab-more → sub-tab 'تتبع GPS' (segment text selector); the AgentLocationRow card has testID='agent-location-<user_id>' (open-map-<user_id> is the icon button). Marker clicks inside the Leaflet iframe are the real way to open AgentMapSheet in production; posting message from parent to iframe won't trigger the sheet because LeafletMap.web filters by e.source===iframe.contentWindow. CARTO streets tiles currently stamp 'API KEY REQUIRED' watermark — flagged for main agent, not a blocker.",
+  "rca_of_issue": "N/A — feature works. Only design-level flag is CARTO's anonymous-tier watermark."
+}

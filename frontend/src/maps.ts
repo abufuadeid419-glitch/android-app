@@ -1,8 +1,6 @@
-// Google Maps URLs (embed works without an API key on web, iOS and Android).
-export type MapType = "m" | "k" | "h"; // roadmap | satellite | hybrid
-
-export const mapEmbedUrl = (lat: number, lng: number, t: MapType, z = 16) =>
-  `https://maps.google.com/maps?q=${lat},${lng}&t=${t}&z=${z}&hl=ar&output=embed`;
+// Maps run on Leaflet with Esri streets (OpenStreetMap data) and Esri satellite tiles — no API key anywhere.
+// "Open"/"directions" links just hand off to the phone's maps app (plain URLs, no key either).
+export type MapType = "m" | "k" | "h"; // streets | satellite | hybrid
 export const mapOpenUrl = (lat: number, lng: number) => `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 export const mapDirectionsUrl = (lat: number, lng: number) => `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
 
@@ -23,7 +21,7 @@ export function trailKm(points: TrailPoint[]) {
   return km;
 }
 
-// Leaflet page drawing the day's path (OpenStreetMap/CARTO streets or Esri satellite; no API key).
+// Leaflet page drawing the day's path (Esri streets (OpenStreetMap data) or Esri satellite; no API key).
 // Map colours are fixed (identical in light and dark themes).
 export function trailHtml(points: TrailPoint[], visits: TrailVisit[], satellite: boolean) {
   const data = JSON.stringify({ p: points.map((x) => [x.lat, x.lng, x.at]), v: visits.map((x) => [x.lat, x.lng, `${x.invoice_no} · ${x.customer_name}`]) }).replace(/</g, "\\u003c");
@@ -36,7 +34,7 @@ function t(s){var d=new Date(s);return ('0'+d.getHours()).slice(-2)+':'+('0'+d.g
 var map=L.map('m',{zoomControl:true});
 (${satellite}
   ? L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'})
-  : L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:20,subdomains:'abcd',attribution:'© OpenStreetMap © CARTO'})
+  : L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri, OpenStreetMap'})
 ).addTo(map);
 var ll=D.p.map(function(x){return [x[0],x[1]]}),b=ll.slice();
 if(ll.length){
@@ -46,5 +44,35 @@ if(ll.length){
 }
 D.v.forEach(function(v,i){L.marker([v[0],v[1]],{icon:L.divIcon({className:'',html:'<div class="n">'+(i+1)+'</div>',iconSize:[24,24],iconAnchor:[12,12]})}).addTo(map).bindPopup(v[2]);b.push([v[0],v[1]]);});
 if(b.length>1)map.fitBounds(b,{padding:[36,36]});else if(b.length)map.setView(b[0],16);else map.setView([33.3,44.4],6);
+</script></body></html>`;
+}
+
+export type MapMarker = { lat: number; lng: number; label: string; color: string; num?: number; id?: string; permanent?: boolean; small?: boolean };
+
+// Generic Leaflet page: pins (optionally numbered / clickable) + optional polyline.
+// Clicking a pin with an `id` posts {leaflet:id} to the app (WebView) or parent window (web iframe).
+export function leafletHtml({ markers, line, lineColor = "#1A73E8", type = "m", zoom = 16 }: { markers: MapMarker[]; line?: [number, number][]; lineColor?: string; type?: MapType; zoom?: number }) {
+  const data = JSON.stringify({ m: markers, l: line ?? [], c: lineColor, t: type, z: zoom }).replace(/</g, "\\u003c");
+  return `<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>html,body,#m{margin:0;height:100%;width:100%;background:#E8ECE9}.p{border:3px solid #fff;border-radius:50%;box-shadow:0 1px 5px rgba(0,0,0,.45);color:#fff;font:bold 11px sans-serif;display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;height:100%}.leaflet-tooltip{font:12px sans-serif}</style></head>
+<body><div id="m"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
+var D=${data};
+function send(id){var msg=JSON.stringify({leaflet:id});if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(msg);else if(window.parent!==window)window.parent.postMessage({leaflet:id},'*');}
+var map=L.map('m',{zoomControl:true});
+var sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'});
+var streets=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri, OpenStreetMap'});
+var labels=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:19});
+if(D.t==='m')streets.addTo(map);else{sat.addTo(map);if(D.t==='h')labels.addTo(map);}
+if(D.l.length>1)L.polyline(D.l,{color:D.c,weight:4,opacity:0.85}).addTo(map);
+var b=[];
+D.m.forEach(function(x){
+  var s=x.small?18:(x.num?24:22);
+  var mk=L.marker([x.lat,x.lng],{icon:L.divIcon({className:'',html:'<div class="p" style="background:'+x.color+'">'+(x.num||'')+'</div>',iconSize:[s,s],iconAnchor:[s/2,s/2]})}).addTo(map);
+  mk.bindTooltip(x.label,{permanent:!!x.permanent,direction:'top',offset:[0,-s/2]});
+  if(x.id)mk.on('click',function(){send(x.id)});
+  b.push([x.lat,x.lng]);
+});
+if(b.length>1)map.fitBounds(b,{padding:[40,40],maxZoom:17});else if(b.length)map.setView(b[0],D.z);else map.setView([34.8,38.9],6);
 </script></body></html>`;
 }

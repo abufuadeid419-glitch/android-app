@@ -48,7 +48,7 @@ export function StatementSheet({ customerId, onClose }: { customerId: string | n
             {user?.employee_type !== "FIELD_AGENT" && <Detail icon="car-outline" text={`الموزع المسؤول: ${c.distributor_name || "—"}`} testID="customer-detail-distributor" />}
             <Detail icon="calendar-outline" text={`تاريخ الإضافة: ${c.created_at ? fmtDate(c.created_at) : "—"}`} />
             {!!c.last_reminder_at && <Detail icon="logo-whatsapp" text={`آخر تذكير بالدين: ${fmtDate(c.last_reminder_at)}`} />}
-            {c.lat != null && <Btn testID="customer-open-map" small variant="ghost" icon="map-outline" title="عرض موقع العميل على خرائط Google" onPress={() => Linking.openURL(mapOpenUrl(c.lat, c.lng))} />}
+            {c.lat != null && <Btn testID="customer-open-map" small variant="ghost" icon="map-outline" title="عرض موقع العميل على الخريطة" onPress={() => Linking.openURL(mapOpenUrl(c.lat, c.lng))} />}
             <T v="label" color={c.balance > 0 ? "warning" : "success"} testID="statement-balance">الرصيد المستحق: {money(c.balance)}</T>
           </Card>
           <StatementActions data={st.data} />

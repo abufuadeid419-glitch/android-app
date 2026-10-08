@@ -141,3 +141,8 @@ Activation by license code (LIC-), employee code (EMP-), or a self-service trial
 - Daily SMS summary (convex/dailySms.ts): cron daily 18:00 UTC (21:00 Syria) sends each active org owner today's sales (count/total), collections and new debts via SMS Gateway. Per-org opt-out `daily_sms`. Routes: GET/PUT /api/org/daily-sms, POST /api/org/daily-sms/test. Owner UI: Org settings → "ملخص SMS اليومي" (switch, preview, send-now).
 - Keyboard: reusable `src/components/KeyboardScreen.tsx` (KeyboardAwareScrollView + KeyboardStickyView footer; tab-bar aware). Login rebuilt on it (collapsing hero, error + CTA in sticky footer); NewSale and Activate use it; `Sheet` wrapped in KeyboardAvoidingView so sheet footers stay above the keyboard.
 - Tested (iteration_2): all green.
+
+## 2026-10 — Maps without Google Maps API
+- All maps use Leaflet + Esri World Street Map / World Imagery (+ labels for hybrid) tiles — no API key. New `src/components/LeafletMap.tsx` (WebView) / `.web.tsx` (iframe) and generic `leafletHtml()` in `src/maps.ts`.
+- AgentsMap, RouteMap, AgentMapSheet live view (streets/satellite/hybrid) and TrailMap migrated; agent pin click opens the agent sheet (postMessage). Removed `react-native-maps` and GoogleMapEmbed. "Open"/"directions" buttons still hand off to the phone's maps app via plain keyless links.
+- Tested (iteration_3): pass; CARTO watermark issue fixed by switching streets to Esri.

@@ -4,10 +4,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { fmtDate, money } from "@/src/api";
 import { DateField, ymd } from "@/src/components/DateField";
-import { GoogleMapEmbed } from "@/src/components/GoogleMapEmbed";
+import { LeafletMap } from "@/src/components/LeafletMap";
 import { TrailMap } from "@/src/components/TrailMap";
 import { useApi } from "@/src/hooks";
-import { mapDirectionsUrl, mapOpenUrl, MapType, trailKm } from "@/src/maps";
+import { leafletHtml, mapDirectionsUrl, mapOpenUrl, MapType, trailKm } from "@/src/maps";
 import { radius, spacing, useTheme } from "@/src/theme";
 import { Badge, Btn, IconBtn, Loading, T } from "@/src/ui";
 
@@ -39,8 +39,8 @@ function Pill({ active, label, onPress, testID }: { active: boolean; label: stri
   );
 }
 
-// Full-screen map of one distributor: live Google Maps position (refreshes every minute)
-// or the day's movement trail (OpenStreetMap, no API key).
+// Full-screen map of one distributor: live position + today's visits (refreshes every minute)
+// or the day's movement trail. Both use OpenStreetMap/Esri tiles via Leaflet — no API key.
 export function AgentMapSheet({ agent, onClose }: { agent: any | null; onClose: () => void }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -93,7 +93,19 @@ export function AgentMapSheet({ agent, onClose }: { agent: any | null; onClose: 
 
         <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary, overflow: "hidden" }}>
           {mode === "live" ? (
-            focus && <GoogleMapEmbed lat={focus.lat} lng={focus.lng} type={type} zoom={17} />
+            focus && (
+              <LeafletMap
+                testID="agent-live-map"
+                html={leafletHtml({
+                  type,
+                  zoom: 17,
+                  markers: [
+                    ...visits.map((v, i) => ({ lat: v.lat, lng: v.lng, num: i + 1, label: `${v.invoice_no} · ${v.customer_name}`, color: colors.warning, permanent: visit?.lat === v.lat && visit?.lng === v.lng })),
+                    ...(latest ? [{ lat: latest.lat, lng: latest.lng, label: live?.name ?? "آخر موقع", color: colors.error, permanent: !visit }] : []),
+                  ],
+                })}
+              />
+            )
           ) : trail.isLoading ? (
             <Loading />
           ) : (
@@ -120,7 +132,7 @@ export function AgentMapSheet({ agent, onClose }: { agent: any | null; onClose: 
               ) : (
                 <T v="caption" testID="trail-empty">لا توجد نقاط GPS مسجلة لهذا اليوم</T>
               )}
-              <T v="caption">الخريطة من OpenStreetMap · الأخضر بداية اليوم والأحمر آخر موقع والأرقام زيارات البيع</T>
+              <T v="caption">الخريطة من OpenStreetMap (بدون مفتاح API) · الأخضر بداية اليوم والأحمر آخر موقع والأرقام زيارات البيع</T>
             </>
           ) : (
             <>
@@ -149,7 +161,7 @@ export function AgentMapSheet({ agent, onClose }: { agent: any | null; onClose: 
               )}
               {focus && (
                 <View style={{ flexDirection: "row", gap: spacing.sm }}>
-                  <Btn testID="agent-map-open-google" style={{ flex: 1 }} small icon="logo-google" title="فتح في خرائط Google" onPress={() => Linking.openURL(mapOpenUrl(focus.lat, focus.lng))} />
+                  <Btn testID="agent-map-open-google" style={{ flex: 1 }} small icon="open-outline" title="فتح في تطبيق الخرائط" onPress={() => Linking.openURL(mapOpenUrl(focus.lat, focus.lng))} />
                   <Btn testID="agent-map-directions" style={{ flex: 1 }} small variant="secondary" icon="navigate-outline" title="الاتجاهات" onPress={() => Linking.openURL(mapDirectionsUrl(focus.lat, focus.lng))} />
                 </View>
               )}
