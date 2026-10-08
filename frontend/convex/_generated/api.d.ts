@@ -12,6 +12,7 @@ import type * as bridge from "../bridge.js";
 import type * as collections from "../collections.js";
 import type * as crons from "../crons.js";
 import type * as customers from "../customers.js";
+import type * as dailySms from "../dailySms.js";
 import type * as deliveries from "../deliveries.js";
 import type * as edge from "../edge.js";
 import type * as employees from "../employees.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   collections: typeof collections;
   crons: typeof crons;
   customers: typeof customers;
+  dailySms: typeof dailySms;
   deliveries: typeof deliveries;
   edge: typeof edge;
   employees: typeof employees;

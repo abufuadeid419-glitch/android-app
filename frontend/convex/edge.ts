@@ -64,12 +64,12 @@ export const dropOtp = internalMutation({
 });
 
 // Send the code via the gateway phone, then poll briefly so a quick failure surfaces as an error.
-async function sendSms(phone: string, code: string) {
+export async function sendSms(phone: string, text: string) {
   const r = await fetch(SMS_GATE_URL, {
     method: "POST",
     headers: gateHeaders(),
     body: JSON.stringify({
-      textMessage: { text: `رمز التحقق في النظام الذكي: ${code}\nصالح لمدة 10 دقائق. لا تشاركه مع أحد.` },
+      textMessage: { text },
       phoneNumbers: [phone],
       ttl: 600,
       priority: 100,
@@ -89,6 +89,11 @@ async function sendSms(phone: string, code: string) {
   return { ok: true, status: r.status, body: "" };
 }
 
+export function smsFailureMessage(r: { status: number; body: string }) {
+  if (/No SIMs/i.test(r.body)) return "جهاز بوابة الرسائل لا يحتوي على شريحة SIM فعّالة، أدخل شريحة وحاول مجدداً";
+  return gateError(r.status);
+}
+
 // POST /api/auth/otp/request — send the code by SMS through the SMS Gateway (SMS only).
 export const requestOtp = action({
   args: { phone: v.string(), channel: v.optional(v.string()) },
@@ -97,12 +102,11 @@ export const requestOtp = action({
     if (!PHONE_RE.test(phone)) throw new Error("أدخل رقم هاتف صحيح مع رمز الدولة");
     const code = randomCode();
     const otpId = await ctx.runMutation(internal.edge.storeOtp, { phone, code_hash: await hashCode(phone, code) });
-    const sms = await sendSms(phone, code);
+    const sms = await sendSms(phone, `رمز التحقق في النظام الذكي: ${code}\nصالح لمدة 10 دقائق. لا تشاركه مع أحد.`);
     if (sms.ok) return { ok: true, channel: "sms" };
     console.error("sms-gate failed", sms.status, sms.body.slice(0, 300));
     await ctx.runMutation(internal.edge.dropOtp, { id: otpId });
-    if (/No SIMs/i.test(sms.body)) throw new Error("جهاز بوابة الرسائل لا يحتوي على شريحة SIM فعّالة، أدخل شريحة وحاول مجدداً");
-    throw new Error(gateError(sms.status));
+    throw new Error(smsFailureMessage(sms));
   },
 });
 

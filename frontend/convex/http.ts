@@ -113,6 +113,9 @@ const ROUTES: Route[] = [
   ["GET", "/org/profile", "q", api.extra.orgProfile, T],
   ["PUT", "/org/profile", "m", api.extra.orgProfileUpdate, spread],
   ["PUT", "/org/currency", "m", api.extra.orgCurrency, spread],
+  ["GET", "/org/daily-sms", "q", api.dailySms.preview, T],
+  ["PUT", "/org/daily-sms", "m", api.dailySms.setEnabled, (c) => ({ token: c.token, enabled: !!c.b.enabled })],
+  ["POST", "/org/daily-sms/test", "a", api.dailySms.sendTest, T],
   ["GET", "/org/logo", "a", api.edge.getLogo, T],
   ["POST", "/org/logo", "a", api.edge.uploadLogo, (c) => ({ token: c.token, data: c.b.data, content_type: c.b.content_type })],
   // plans / settings / upgrades

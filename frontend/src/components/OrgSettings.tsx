@@ -1,13 +1,47 @@
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { useState } from "react";
-import { Platform, View } from "react-native";
+import { Platform, Switch, View } from "react-native";
 
 import { api, fmtDate } from "@/src/api";
 import { useAuth } from "@/src/auth";
 import { useApi, useMutate } from "@/src/hooks";
-import { spacing } from "@/src/theme";
+import { spacing, useTheme } from "@/src/theme";
 import { Badge, Btn, Card, Field, Section, T, useToast } from "@/src/ui";
+
+// Evening SMS (21:00) to the owner with today's sales, collections and new debts.
+function DailySmsSection() {
+  const { colors } = useTheme();
+  const q = useApi<{ enabled: boolean; phone: string | null; text: string }>("/org/daily-sms");
+  const save = useMutate("PUT", "/org/daily-sms", "تم حفظ الإعداد");
+  const test = useMutate("POST", "/org/daily-sms/test", "تم إرسال ملخص اليوم إلى هاتفك");
+  const enabled = q.data?.enabled ?? true;
+  return (
+    <Section title="ملخص SMS اليومي">
+      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+        <View style={{ flex: 1 }}>
+          <T v="label">إرسال ملخص مسائي (9:00 م)</T>
+          <T v="caption">المبيعات والتحصيلات والديون الجديدة لليوم، برسالة SMS إلى {q.data?.phone ?? "رقم المالك"}</T>
+        </View>
+        <Switch
+          testID="daily-sms-switch"
+          value={enabled}
+          disabled={q.isLoading || save.isPending}
+          onValueChange={(v) => save.mutate({ enabled: v })}
+          trackColor={{ true: colors.brandPrimary, false: colors.border }}
+          thumbColor={colors.surface}
+        />
+      </View>
+      {!!q.data?.text && (
+        <Card testID="daily-sms-preview" style={{ gap: spacing.xs, backgroundColor: colors.surfaceSecondary }}>
+          <T v="caption">معاينة رسالة اليوم</T>
+          <T>{q.data.text}</T>
+        </Card>
+      )}
+      <Btn testID="daily-sms-test-button" small variant="secondary" icon="send-outline" title="أرسل ملخص اليوم الآن" loading={test.isPending} disabled={!q.data?.phone} onPress={() => test.mutate({})} />
+    </Section>
+  );
+}
 
 // Owner settings: currencies, data backup export, and organization deletion request.
 export function OrgSettings() {
@@ -57,6 +91,8 @@ export function OrgSettings() {
         <Field testID="exchange-rate-input" label={`سعر الصرف (1 ${cur.alt_currency || "عملة ثانوية"} = ? ${cur.currency})`} keyboardType="decimal-pad" value={cur.exchange_rate} onChangeText={(v) => setCur({ ...cur, exchange_rate: v })} />
         <Btn testID="save-currency-button" small title="حفظ العملات" icon="checkmark" loading={saveCur.isPending} onPress={() => saveCur.mutate({ ...cur, exchange_rate: +cur.exchange_rate || 0 })} />
       </Section>
+
+      <DailySmsSection />
 
       <Section title="النسخ الاحتياطي">
         <T v="caption">صدّر جميع بيانات المؤسسة (المنتجات، العملاء، الفواتير، التحصيلات، المشتريات...) كملف JSON.</T>

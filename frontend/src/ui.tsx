@@ -16,7 +16,7 @@ import {
   View,
   ViewStyle,
 } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { KeyboardAvoidingView, KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { fonts, makeStyles, radius, spacing, ThemeColors, useTheme } from "@/src/theme";
@@ -379,7 +379,8 @@ export function Sheet({
   const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <View style={styles.backdrop}>
+      {/* Lift the whole sheet (incl. footer CTA) above the keyboard; the inner scroll keeps the focused field visible. */}
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.backdrop}>
         <Pressable style={{ flex: 1 }} onPress={onClose} testID="sheet-backdrop" />
         <View testID={testID} style={[styles.sheet, { paddingBottom: insets.bottom + spacing.md }]}>
           <View style={styles.handle} />
@@ -392,7 +393,7 @@ export function Sheet({
           </KeyboardAwareScrollView>
           {footer && <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.sm }}>{footer}</View>}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

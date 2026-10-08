@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { View } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
 import { money } from "@/src/api";
 import { useAuth } from "@/src/auth";
 import { AccountButton } from "@/src/components/AccountButton";
 import { InvoiceActions } from "@/src/components/InvoiceActions";
+import { KeyboardScreen } from "@/src/components/KeyboardScreen";
 import { SyncBanner } from "@/src/components/SyncBanner";
 import { useApi, useBottomChrome } from "@/src/hooks";
 import { useSyncState } from "@/src/offline";
@@ -80,10 +80,21 @@ export default function NewSale() {
   if (customers.isLoading || inv.isLoading) return <View style={{ flex: 1, backgroundColor: colors.surface }}><Header title="فاتورة جديدة" /><Loading /></View>;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surface }} testID="new-sale-screen">
-      <Header title="فاتورة جديدة" subtitle="بيع من مخزونك" right={<AccountButton />} />
-      <SyncBanner />
-      <KeyboardAwareScrollView bottomOffset={120} keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg }}>
+    <KeyboardScreen
+      testID="new-sale-screen"
+      bottomInset={bottom}
+      header={<><Header title="فاتورة جديدة" subtitle="بيع من مخزونك" right={<AccountButton />} /><SyncBanner /></>}
+      contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg }}
+      footer={
+        <>
+          <View style={{ flexDirection: "row" }}>
+            <T v="label" style={{ flex: 1 }}>الإجمالي</T>
+            <T v="title" color="brandPrimary" testID="sale-total">{money(total)}</T>
+          </View>
+          <Btn testID="submit-sale-button" title="حفظ الفاتورة" icon="checkmark-circle-outline" onPress={submit} loading={saving} />
+        </>
+      }
+    >
         {last && (
           <Card testID="last-invoice-card" style={{ backgroundColor: colors.brandTertiary, borderColor: colors.brandSecondary, gap: spacing.xs }}>
             <T v="label" color="brandPrimary">تم إنشاء الفاتورة {last.invoice_no}{last.pending ? " (بانتظار المزامنة)" : ""}</T>
@@ -126,14 +137,6 @@ export default function NewSale() {
         </View>
         <Field testID="sale-paid-input" label="المبلغ المدفوع (اتركه فارغاً للدفع الكامل)" keyboardType="decimal-pad" value={paid} onChangeText={setPaid} placeholder={money(total)} />
         <Field testID="sale-notes-input" label="ملاحظات" value={notes} onChangeText={setNotes} />
-      </KeyboardAwareScrollView>
-      <View style={{ padding: spacing.lg, paddingBottom: bottom + spacing.lg, borderTopWidth: 1, borderTopColor: colors.divider, backgroundColor: colors.surface, gap: spacing.sm }}>
-        <View style={{ flexDirection: "row" }}>
-          <T v="label" style={{ flex: 1 }}>الإجمالي</T>
-          <T v="title" color="brandPrimary" testID="sale-total">{money(total)}</T>
-        </View>
-        <Btn testID="submit-sale-button" title="حفظ الفاتورة" icon="checkmark-circle-outline" onPress={submit} loading={saving} />
-      </View>
-    </View>
+    </KeyboardScreen>
   );
 }
